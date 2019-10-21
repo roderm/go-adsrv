@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+import "github.com/roderm/go-adsrv/api/proto/types/Address.proto";
+
+option go_package = "github.com/roderm/go-adsrv/api/proto/go/registry-service;registry-service";
+
+service Registry {
+    rpc Inform(stream adsrv.address.AddressObject) returns (stream adsrv.address.Value);
+    rpc ValueUpdate(stream adsrv.address.Value) returns (adsrv.address.Empty);
+}

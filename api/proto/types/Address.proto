@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package adsrv.address;
+
+option go_package = "github.com/roderm/go-adsrv/api/proto/go/address;address";
+
+enum Status {
+    NEW = 0;
+    UPDATED = 1;
+    DELETED = 2;
+}
+message Empty {
+}
+
+message AddressObject {
+    string Address = 1;
+    string DataType = 2; //url
+    map<string, bytes> Options = 3;
+    bool Readable = 4;
+    bool Writable = 5;
+    Status status = 6;
+    bytes Value = 7;
+}
+
+message AddressSub {
+    repeated string Ids = 1;
+}
+
+message Chunk {
+    bytes Value = 2;
+}
+message Value {
+    string Address = 1;
+    bytes Value = 2;
+}

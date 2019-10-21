@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+import "github.com/roderm/go-adsrv/api/proto/types/Address.proto";
+
+option go_package = "github.com/roderm/go-adsrv/api/proto/go/address-service;address-service";
+
+service Address {
+    rpc Set(adsrv.address.Value) returns (adsrv.address.Value);
+    rpc Get(adsrv.address.Empty) returns (stream adsrv.address.AddressObject);
+    rpc Subscribe(adsrv.address.AddressSub) returns (stream adsrv.address.Value);
+}
