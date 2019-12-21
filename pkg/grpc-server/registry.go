@@ -2,11 +2,13 @@ package grpc_server
 
 import (
 	"context"
-	"errors"
 	"fmt"
+
 	pb "github.com/roderm/go-adsrv/api/proto/go/address"
 	rs "github.com/roderm/go-adsrv/api/proto/go/registry-service"
 	"github.com/roderm/go-adsrv/pkg/pubsub"
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/xerrors"
 )
 
 // Registry keeps the registered Plugins from gRPC
@@ -35,17 +37,28 @@ func NewRegistry(ctx context.Context) *Registry {
 	return r
 }
 
-// Register handles incoming Plugins
+func (r *Registry) get(address string) (*pb.AddressObject, error) {
+	for _, plug := range r.store {
+		addr, ok := plug.addresses[address]
+		if ok {
+			return addr, nil
+		}
+	}
+	return nil, xerrors.Errorf("Address %s not found in any plugin", address)
+}
+
+//Inform handles incoming Plugins
 func (r *Registry) Inform(srv rs.Registry_InformServer) error {
-	srvId := srv.Context().Value("id")
-	if _, ok := r.store[srvId]; ok {
-		return errors.New("Plugin already exists")
+	srvID := srv.Context().Value("id")
+	log.Debug("New plugin registered.")
+	if _, ok := r.store[srvID]; ok {
+		return xerrors.New("Plugin already exists")
 	}
 	plugable := &grpcPlugable{
 		conn:      srv,
 		addresses: make(map[string]*pb.AddressObject),
 	}
-	r.store[srvId] = plugable
+	r.store[srvID] = plugable
 	defer func() {
 		delete(r.store, srv)
 	}()
@@ -54,6 +67,7 @@ func (r *Registry) Inform(srv rs.Registry_InformServer) error {
 		case <-r.ctx.Done():
 			return r.ctx.Err()
 		case <-srv.Context().Done():
+			log.Info("Plugin is gone....")
 			return r.ctx.Err()
 		default:
 			v, err := srv.Recv()
@@ -61,7 +75,7 @@ func (r *Registry) Inform(srv rs.Registry_InformServer) error {
 				return err
 			}
 			address := v.GetAddress()
-			v.Address = fmt.Sprintf("%s:%s", srvId, v.GetAddress())
+			v.Address = fmt.Sprintf("%s:%s", srvID, v.GetAddress())
 			plugable.addresses[address] = v
 			// store type
 			r.ps.Publish("new_address", v.Address)
@@ -69,13 +83,14 @@ func (r *Registry) Inform(srv rs.Registry_InformServer) error {
 	}
 }
 
+//ValueUpdate handling updates for the plugin
 func (r *Registry) ValueUpdate(srv rs.Registry_ValueUpdateServer) error {
 	defer srv.SendAndClose(nil)
-	srvId := srv.Context().Value("id")
+	srvID := srv.Context().Value("id")
 	var plugable *grpcPlugable
 	var ok bool
-	if plugable, ok = r.store[srvId]; !ok {
-		return errors.New("Plugin not loaded")
+	if plugable, ok = r.store[srvID]; !ok {
+		return xerrors.New("Plugin not loaded")
 	}
 	for {
 		select {
@@ -89,20 +104,20 @@ func (r *Registry) ValueUpdate(srv rs.Registry_ValueUpdateServer) error {
 				return err
 			}
 			plugable.addresses[v.GetAddress()].Value = v.Value
-			address := fmt.Sprintf("%s:%s", srvId, v.GetAddress())
+			address := fmt.Sprintf("%s:%s", srvID, v.GetAddress())
 			r.ps.Publish(plugable.addresses[v.GetAddress()], address)
 
-			fmt.Printf("New value %v on address %s \n", v.GetValue(), address)
+			log.Debugf("New value %v on address %s \n", v.GetValue(), address)
 		}
 	}
 }
 
 // Set sends Set-command to plugin
-func (r *Registry) Set(srvId interface{}, address string, value []byte) error {
+func (r *Registry) Set(srvID interface{}, address string, value []byte) error {
 	var srv *grpcPlugable
 	var ok bool
-	if srv, ok = r.store[srvId]; !ok {
-		return errors.New("Has been closed or never existed")
+	if srv, ok = r.store[srvID]; !ok {
+		return xerrors.New("Has been closed or never existed")
 	}
 	return srv.conn.Send(&pb.Value{
 		Address: address,

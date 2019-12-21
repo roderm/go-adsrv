@@ -6,6 +6,6 @@ option go_package = "github.com/roderm/go-adsrv/api/proto/go/address-service;add
 
 service Address {
     rpc Set(adsrv.address.Value) returns (adsrv.address.Value);
-    rpc Get(adsrv.address.Empty) returns (stream adsrv.address.AddressObject);
+    rpc Get(adsrv.address.AddressSub) returns (stream adsrv.address.AddressObject);
     rpc Subscribe(adsrv.address.AddressSub) returns (stream adsrv.address.Value);
 }
