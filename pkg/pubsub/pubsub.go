@@ -4,9 +4,10 @@ import (
 	"context"
 )
 
+// NewPubsub Publisher/Subscribe object
 func NewPubsub() *Pubsub {
 	return &Pubsub{
-		themes: make(map[string][]subscriber),
+		topics: make(map[string][]subscriber),
 	}
 }
 
@@ -15,15 +16,16 @@ type subscriber struct {
 	ch  chan<- interface{}
 }
 type Pubsub struct {
-	themes map[string][]subscriber
+	topics map[string][]subscriber
 }
 
+// Sub subscribe to multiple topics
 func (s *Pubsub) Sub(
 	ctx context.Context,
-	themes ...string,
+	topics ...string,
 ) (<-chan interface{}, error) {
 	ch := make(chan interface{})
-	for _, t := range themes {
+	for _, t := range topics {
 		err := s.makeSub(ctx, t, ch)
 		if err != nil {
 			return ch, err
@@ -33,25 +35,26 @@ func (s *Pubsub) Sub(
 }
 
 func (s *Pubsub) makeSub(ctx context.Context, t string, ch chan<- interface{}) error {
-	s.themes[t] = append(s.themes[t], subscriber{
+	s.topics[t] = append(s.topics[t], subscriber{
 		ctx: ctx,
 		ch:  ch,
 	})
 	return nil
 }
 
-func (s *Pubsub) Publish(msg interface{}, themes ...string) error {
-	for _, t := range themes {
+// Publish a message to the given topics
+func (s *Pubsub) Publish(msg interface{}, topics ...string) error {
+	for _, t := range topics {
 		s.makePublish(msg, t)
 	}
 	return nil
 }
 
 func (s *Pubsub) makePublish(msg interface{}, t string) error {
-	for i, sub := range s.themes[t] {
+	for i, sub := range s.topics[t] {
 		select {
 		case <-sub.ctx.Done():
-			s.themes[t] = append(s.themes[t][:i], s.themes[t][:i+1]...)
+			s.topics[t] = append(s.topics[t][:i], s.topics[t][:i+1]...)
 		case sub.ch <- msg:
 		}
 	}

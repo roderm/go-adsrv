@@ -4,13 +4,13 @@ import (
 	pb "github.com/roderm/go-adsrv/api/proto/go/address"
 )
 
-type bla IAdress
-
 type Readable interface {
+	IAdress
 	Notifier(INotifier)
 }
 type Settable interface {
-	Set([]byte) error
+	IAdress
+	Set(...[]byte) error
 }
 type INotifier interface {
 	Value([]byte)
